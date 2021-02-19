@@ -1,5 +1,6 @@
 import 'reflect-metadata'
-
+import { config } from 'dotenv'
+config()
 import microConfig from './mikro-orm.config'
 import express from 'express'
 
@@ -14,9 +15,9 @@ import redis from 'redis'
 import session from 'express-session'
 import connectRedis from 'connect-redis'
 import { __prod__ } from './constants'
-// import { MyContext } from './types'
 
-const port = process.env.PORT || 8080
+const { PORT, FRONTEND_URI, COOKIE_NAME, SECRET_KEY } = process.env
+// const secretKey = process.env.SECRET_KEY
 
 const main = async () => {
   const orm = await MikroORM.init(microConfig)
@@ -27,9 +28,11 @@ const main = async () => {
 
   const RedisStore = connectRedis(session)
   const redisClient = redis.createClient()
+  // let RedisStore = require('connect-redis')(session)
+  // let redisClient = redis.createClient()
   app.use(
     session({
-      name: 'qid',
+      name: COOKIE_NAME,
       store: new RedisStore({
         client: redisClient,
         disableTouch: true,
@@ -41,7 +44,7 @@ const main = async () => {
         secure: __prod__, // cookie only works in http
       },
       saveUninitialized: false,
-      secret: 'qdqdwqdadsadsadsad',
+      secret: SECRET_KEY!,
       resave: false,
     })
   )
@@ -51,12 +54,16 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    // context: ({ req, res }): MyContext => ({ em: orm.em, req, res }),
     context: ({ req, res }) => ({ em: orm.em, req, res }),
   })
-  apolloServer.applyMiddleware({ app })
+  apolloServer.applyMiddleware({
+    app,
+    cors: { origin: FRONTEND_URI, credentials: true },
+  })
 
-  app.listen(port, () => console.log(`http://localhost:${8080}/graphql`))
+  app.listen(PORT, () =>
+    console.log(`http://localhost:${PORT}${apolloServer.graphqlPath}`)
+  )
 }
 
 main().catch((err) => console.log(err))

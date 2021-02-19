@@ -9,10 +9,22 @@ import {
   Ctx,
   InputType,
   ObjectType,
+  Query,
 } from 'type-graphql'
+import { validateEmail } from '../utils/validate'
 
 @InputType()
-class UsernamePasswordInput {
+class RegisterInput {
+  @Field()
+  email: string
+  @Field()
+  username: string
+  @Field()
+  password: string
+}
+
+@InputType()
+class LoginInput {
   @Field()
   username: string
   @Field()
@@ -38,17 +50,39 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  @Query(() => User, { nullable: true })
+  async me(@Ctx() { em, req }: MyContext): Promise<User | null> {
+    if (!req.session.userId) {
+      return null
+    }
+    const user = await em.findOne(User, { id: req.session.userId })
+    return user
+  }
+
   @Mutation(() => UserResponse)
   async register(
-    @Arg('options') options: UsernamePasswordInput,
-    @Ctx() { em }: MyContext
+    @Arg('options') options: RegisterInput,
+    @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
+    const isEmailValid = validateEmail(options.email)
+
+    if (!isEmailValid) {
+      return {
+        errors: [
+          {
+            field: 'email',
+            message: 'Email is invalid.',
+          },
+        ],
+      }
+    }
+
     if (options.username.length <= 2) {
       return {
         errors: [
           {
             field: 'username',
-            message: 'length must be greater than 2 digit',
+            message: 'length must be greater than 2 characters',
           },
         ],
       }
@@ -59,7 +93,7 @@ export class UserResolver {
         errors: [
           {
             field: 'username',
-            message: 'that username is already taken.',
+            message: 'username is already taken.',
           },
         ],
       }
@@ -69,7 +103,7 @@ export class UserResolver {
         errors: [
           {
             field: 'password',
-            message: 'length must be greater than 3 digit',
+            message: 'length must be greater than 3 characters',
           },
         ],
       }
@@ -78,14 +112,17 @@ export class UserResolver {
     const user = em.create(User, {
       username: options.username,
       password: hashedPassword,
+      email: options.email,
     })
     await em.persistAndFlush(user)
+
+    req.session.userId = user.id
     return { user }
   }
 
   @Mutation(() => UserResponse)
   async login(
-    @Arg('options') options: UsernamePasswordInput,
+    @Arg('options') options: LoginInput,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
     const user = await em.findOne(User, { username: options.username })
@@ -112,5 +149,24 @@ export class UserResolver {
     }
     req.session.userId = user.id
     return { user }
+  }
+
+  @Mutation(() => Boolean)
+  logout(@Ctx() { req, res }: MyContext) {
+    try {
+      return new Promise((resolve) =>
+        req.session.destroy((err) => {
+          res.clearCookie(process.env.COOKIE_NAME!)
+          if (err) {
+            console.log(err)
+            resolve(false)
+            return
+          }
+          resolve(true)
+        })
+      )
+    } catch (error) {
+      throw error
+    }
   }
 }
