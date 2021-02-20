@@ -5,3 +5,10 @@ export const validateEmail = (email: string) => {
 
   return emailRegex.test(fmtEmail)
 }
+
+export const validateUsername = (username: string) => {
+  const fmtUsername = username.trim()
+  return fmtUsername.length >= 2
+}
+
+export const validatePassword = (password: string) => password.length >= 3

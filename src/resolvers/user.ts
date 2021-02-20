@@ -1,6 +1,6 @@
 import argon2 from 'argon2'
 import { User } from '../entities/User'
-import { MyContext } from '../types'
+import { MyContext, Role } from '../types'
 import {
   Resolver,
   Mutation,
@@ -11,7 +11,12 @@ import {
   ObjectType,
   Query,
 } from 'type-graphql'
-import { validateEmail } from '../utils/validate'
+
+import {
+  validateEmail,
+  validatePassword,
+  validateUsername,
+} from '../utils/validate'
 
 @InputType()
 class RegisterInput {
@@ -59,6 +64,21 @@ export class UserResolver {
     return user
   }
 
+  @Query(() => [User])
+  async users(@Ctx() { em, req }: MyContext): Promise<User[]> {
+    try {
+      if (!req.session.userId) throw new Error('Please log in to proceed.')
+
+      const admin = await em.findOne(User, { id: req.session.userId })
+      const isAdmin = admin?.roles.includes(Role.Admin) //.roles.includes(Role.Admin)
+      if (!isAdmin) throw new Error('Not authorized.')
+
+      return em.find(User, {})
+    } catch (error) {
+      throw error
+    }
+  }
+
   @Mutation(() => UserResponse)
   async register(
     @Arg('options') options: RegisterInput,
@@ -71,22 +91,38 @@ export class UserResolver {
         errors: [
           {
             field: 'email',
-            message: 'Email is invalid.',
+            message: 'email is invalid.',
           },
         ],
       }
     }
 
-    if (options.username.length <= 2) {
+    const fmtEmail = options.email.trim().toLowerCase()
+    console.log('Email', fmtEmail)
+    const checkEmail = await em.findOne(User, { email: fmtEmail })
+    if (checkEmail) {
       return {
         errors: [
           {
-            field: 'username',
-            message: 'length must be greater than 2 characters',
+            field: 'email',
+            message: 'email is already taken.',
           },
         ],
       }
     }
+
+    const isUsernameValid = validateUsername(options.username)
+    if (!isUsernameValid) {
+      return {
+        errors: [
+          {
+            field: 'username',
+            message: 'length must be greater than 2 characters.',
+          },
+        ],
+      }
+    }
+
     const checkUser = await em.findOne(User, { username: options.username })
     if (checkUser) {
       return {
@@ -98,21 +134,23 @@ export class UserResolver {
         ],
       }
     }
-    if (options.password.length <= 3) {
+    const isPasswordValid = validatePassword(options.password)
+    if (!isPasswordValid) {
       return {
         errors: [
           {
             field: 'password',
-            message: 'length must be greater than 3 characters',
+            message: 'length must be greater than 3 characters.',
           },
         ],
       }
     }
     const hashedPassword = await argon2.hash(options.password)
+
     const user = em.create(User, {
       username: options.username,
       password: hashedPassword,
-      email: options.email,
+      email: fmtEmail,
     })
     await em.persistAndFlush(user)
 
@@ -165,6 +203,43 @@ export class UserResolver {
           resolve(true)
         })
       )
+    } catch (error) {
+      throw error
+    }
+  }
+
+  @Mutation(() => Boolean)
+  async deleteUser(
+    @Arg('id') id: number,
+    @Ctx() { em }: MyContext
+  ): Promise<Boolean> {
+    await em.nativeDelete(User, { id })
+    return true
+  }
+
+  @Mutation(() => User, { nullable: true })
+  async updateRoles(
+    @Arg('newRoles', () => [String]) newRoles: Role[],
+    @Arg('id') id: number,
+    @Ctx() { em, req }: MyContext
+  ): Promise<User | null> {
+    try {
+      if (!req.session.userId) throw new Error('Please log in to proceed.')
+
+      const admin = await em.findOne(User, { id: req.session.userId })
+      const isAdmin = admin?.roles.includes(Role.Admin) //.roles.includes(Role.Admin)
+      if (!isAdmin) throw new Error('Not authorized.')
+
+      const user = await em.findOne(User, { id })
+      if (!user) throw new Error('User not found.')
+      // Update roles
+      if (!newRoles.includes(Role.Client)) {
+        user.roles = [...newRoles, Role.Client]
+      } else {
+        user.roles = newRoles
+      }
+      await em.persistAndFlush(user)
+      return user
     } catch (error) {
       throw error
     }
