@@ -7,7 +7,6 @@ export enum Role {
   Admin = 'admin',
   Sale = 'sale',
   Reader = 'reader',
-  ItemEditor = 'itemEditor',
   SuperAdmin = 'superAdmin',
 }
 

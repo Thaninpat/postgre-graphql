@@ -70,8 +70,8 @@ export class UserResolver {
       if (!req.session.userId) throw new Error('Please log in to proceed.')
 
       const admin = await em.findOne(User, { id: req.session.userId })
-      const isAdmin = admin?.roles.includes(Role.Admin) //.roles.includes(Role.Admin)
-      if (!isAdmin) throw new Error('Not authorized.')
+      const isSuperAdmin = admin?.roles.includes(Role.SuperAdmin)
+      if (!isSuperAdmin) throw new Error('Not authorized.')
 
       return em.find(User, {})
     } catch (error) {
@@ -98,7 +98,7 @@ export class UserResolver {
     }
 
     const fmtEmail = options.email.trim().toLowerCase()
-    console.log('Email', fmtEmail)
+    // console.log('Email', fmtEmail)
     const checkEmail = await em.findOne(User, { email: fmtEmail })
     if (checkEmail) {
       return {
@@ -227,8 +227,8 @@ export class UserResolver {
       if (!req.session.userId) throw new Error('Please log in to proceed.')
 
       const admin = await em.findOne(User, { id: req.session.userId })
-      const isAdmin = admin?.roles.includes(Role.Admin) //.roles.includes(Role.Admin)
-      if (!isAdmin) throw new Error('Not authorized.')
+      const isSuperAdmin = admin?.roles.includes(Role.SuperAdmin)
+      if (!isSuperAdmin) throw new Error('Not authorized.')
 
       const user = await em.findOne(User, { id })
       if (!user) throw new Error('User not found.')
