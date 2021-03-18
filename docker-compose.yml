@@ -1,15 +1,14 @@
-version: '3'
-services: 
+version: '3.8'
+services:
   postgres:
     image: postgres
-    ports: 
+    ports:
       - '5432:5432'
-    environment: 
-      POSTGRES_PASSWORD: '123456'
+    environment:
+      POSTGRES_PASSWORD: '1234'
     volumes:
       - pgdatavolume:/var/lib/postgresql/data
     restart: always
-
 
 volumes:
   pgdatavolume:

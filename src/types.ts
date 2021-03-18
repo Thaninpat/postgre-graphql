@@ -1,7 +1,7 @@
 import { EntityManager, IDatabaseDriver, Connection } from '@mikro-orm/core'
 import { Request, Response } from 'express'
 import { Session, SessionData } from 'express-session'
-// import { Redis } from 'ioredis'
+import { Redis } from 'ioredis'
 export enum Role {
   Client = 'client',
   Admin = 'admin',
@@ -15,6 +15,6 @@ export type MyContext = {
   req: Request & {
     session: Session & Partial<SessionData> & { userId: number }
   }
-  // redis: Redis
+  redis: Redis
   res: Response
 }

@@ -22,7 +22,7 @@ export class User {
   updatedAt = new Date()
 
   @Field()
-  @Property({ type: 'text' })
+  @Property({ type: 'text', unique: true })
   email!: string
 
   @Field()
@@ -36,4 +36,10 @@ export class User {
   @Property({ type: ArrayType, nullable: false })
   @Enum({ items: () => Role, array: true, default: [Role.Client] })
   roles: Role[] = [Role.Client]
+
+  // @Property({ nullable: true })
+  // resetPasswordToken?: string
+
+  // @Property({ nullable: true })
+  // resetPasswordTokenExpiry?: number
 }
